@@ -1,65 +1,70 @@
-import Image from "next/image";
+'use client'
 
-export default function Home() {
+import Link from 'next/link'
+import { motion } from 'framer-motion'
+import { ShieldCheck, ArrowRight } from 'lucide-react'
+
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="min-h-screen flex flex-col items-center justify-center bg-white px-4">
+      <motion.div
+        className="w-full max-w-[520px] flex flex-col items-center text-center gap-8"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+      >
+        {/* Logo */}
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="w-6 h-6 text-[#0EA5E9]" strokeWidth={2} />
+          <span className="font-semibold text-[#09090B] tracking-tight text-[15px]">
+            proa<span className="text-[#0EA5E9]">shield</span>
+          </span>
+        </div>
+
+        {/* Hero */}
+        <div className="flex flex-col items-center gap-4">
+          <h1 className="text-[32px] sm:text-[38px] font-semibold text-[#09090B] tracking-tight leading-tight">
+            Your AI-powered{' '}
+            <span className="text-[#0EA5E9]">outreach firewall</span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-base text-[#52525B] max-w-[380px] leading-relaxed">
+            Every inbound request goes through a 60-second AI screening conversation.
+            You only see what truly matters.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+        {/* CTAs */}
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <Link
+            href="/auth/exec/register"
+            className="inline-flex items-center justify-center gap-2 bg-[#0EA5E9] hover:bg-[#0284C7] text-white font-medium px-5 py-2.5 rounded-lg text-sm transition-colors duration-150 active:scale-[0.98]"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            Get started
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+          <Link
+            href="/auth/seller/register"
+            className="inline-flex items-center justify-center gap-2 bg-white hover:bg-[#F4F4F5] text-[#09090B] font-medium px-5 py-2.5 rounded-lg text-sm border border-[#E4E4E7] transition-colors duration-150"
           >
-            Documentation
-          </a>
+            I want to reach an executive
+          </Link>
         </div>
-      </main>
-    </div>
-  );
+
+        {/* Divider */}
+        <div className="w-full border-t border-[#E4E4E7]" />
+
+        {/* Sign in links */}
+        <p className="text-sm text-[#A1A1AA]">
+          Already have an account?{' '}
+          <Link href="/auth/exec/login" className="text-[#0EA5E9] hover:underline underline-offset-4">
+            Executive login
+          </Link>
+          {' · '}
+          <Link href="/auth/seller/login" className="text-[#0EA5E9] hover:underline underline-offset-4">
+            Seller login
+          </Link>
+        </p>
+      </motion.div>
+    </main>
+  )
 }
