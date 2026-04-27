@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { sendPassEmail } from '@/lib/notifications/sendPassEmail'
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
     const supabase = await createServerSupabaseClient()
     const { data: profile } = await supabase
       .from('exec_profiles')
-      .select('id, notification_email')
+      .select('id, notification_email, full_name')
       .eq('username', username)
       .maybeSingle()
 
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: 'Profile not found' }, { status: 404 })
     }
 
-    // Get sender email from seller profile if user is logged in
+    // Get sender info from seller profile if user is logged in
     let senderEmail = ''
     let senderName = ''
     let senderCompany = ''
@@ -74,6 +75,22 @@ export async function POST(request: NextRequest) {
       transcript,
       prompt_snapshot: prompt_snapshot ?? '',
     })
+
+    // Fire notifications — never block the response on email success
+    if (verdict === 'pass' && profile.notification_email) {
+      await Promise.allSettled([
+        sendPassEmail({
+          execNotificationEmail: profile.notification_email,
+          execFirstName: profile.full_name?.split(' ')[0] ?? '',
+          senderName,
+          senderCompany,
+          category: category ?? '',
+          score: score ?? 0,
+          summary: summary ?? '',
+          reason: reason ?? '',
+        }),
+      ])
+    }
 
     return Response.json({ ok: true })
   } catch (err) {
