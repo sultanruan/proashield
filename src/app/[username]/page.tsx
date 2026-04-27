@@ -1,16 +1,30 @@
-export default function PublicProfilePage({
+import { notFound } from 'next/navigation'
+import { Suspense } from 'react'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { PublicProfileClient } from './_components/PublicProfileClient'
+import type { ExecProfile } from './types'
+
+export default async function PublicProfilePage({
   params,
 }: {
-  params: { username: string }
+  params: Promise<{ username: string }>
 }) {
+  const { username } = await params
+  const supabase = await createServerSupabaseClient()
+
+  const { data } = await supabase
+    .from('exec_profiles')
+    .select('id, username, full_name, job_title, company_name, company_description, professional_context, outreach_profile, current_focus, ai_structured_profile')
+    .eq('username', username)
+    .maybeSingle()
+
+  if (!data) notFound()
+
+  const profile = data as ExecProfile
+
   return (
-    <main className="min-h-screen flex items-center justify-center bg-white">
-      <div className="text-center">
-        <h1 className="text-2xl font-semibold text-gray-800">
-          @{params.username}
-        </h1>
-        <p className="mt-2 text-gray-500">Public screening page — Coming in Week 3</p>
-      </div>
-    </main>
+    <Suspense>
+      <PublicProfileClient profile={profile} />
+    </Suspense>
   )
 }

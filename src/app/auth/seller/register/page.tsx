@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ShieldCheck } from 'lucide-react'
@@ -12,7 +13,10 @@ const FREE_EMAIL_DOMAINS = [
   'icloud.com', 'aol.com', 'live.com', 'protonmail.com',
 ]
 
-export default function SellerRegisterPage() {
+function SellerRegisterForm() {
+  const searchParams = useSearchParams()
+  const redirect = searchParams.get('redirect') ?? ''
+
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
@@ -33,17 +37,23 @@ export default function SellerRegisterPage() {
 
     setLoading(true)
     const supabase = createClient()
-    const { error } = await supabase.auth.signUp({
+
+    // If coming from a public profile page, redirect back there after verification
+    const redirectTarget = redirect
+      ? `${window.location.origin}/${redirect}?autostart=true`
+      : `${window.location.origin}/onboarding/seller`
+
+    const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { full_name: fullName, user_type: 'seller', phone },
-        emailRedirectTo: `${window.location.origin}/onboarding/seller`,
+        emailRedirectTo: redirectTarget,
       },
     })
 
     setLoading(false)
-    if (error) setError(error.message)
+    if (signUpError) setError(signUpError.message)
     else setSuccess(true)
   }
 
@@ -145,12 +155,23 @@ export default function SellerRegisterPage() {
 
         <p className="text-center text-sm text-[#A1A1AA]">
           Already have an account?{' '}
-          <Link href="/auth/seller/login" className="text-[#0EA5E9] hover:underline underline-offset-4">
+          <Link
+            href={redirect ? `/auth/seller/login?redirect=${encodeURIComponent(redirect)}` : '/auth/seller/login'}
+            className="text-[#0EA5E9] hover:underline underline-offset-4"
+          >
             Sign in
           </Link>
         </p>
       </form>
     </AuthLayout>
+  )
+}
+
+export default function SellerRegisterPage() {
+  return (
+    <Suspense>
+      <SellerRegisterForm />
+    </Suspense>
   )
 }
 
