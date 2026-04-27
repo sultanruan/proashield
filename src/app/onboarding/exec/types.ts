@@ -1,19 +1,15 @@
-export type CategoryItem = {
-  id: string
-  name: string
-  enabled: boolean
-  locked?: boolean    // cannot be toggled off (e.g. Software vendors)
-  hasNotes?: boolean  // shows a "criteria" input when enabled
-  notes: string
-}
-
-export type CustomCategory = {
-  id: string
-  name: string
-  notes: string
-}
-
 export type NotificationFrequency = 'realtime' | 'daily' | 'weekly'
+
+export type Role = 'ceo' | 'cto' | 'cmo' | 'cfo' | 'default'
+
+export type AiStructuredProfile = {
+  accepted_categories: string[]
+  rejected_categories: string[]
+  objectives: string[]
+  green_flags: string[]
+  red_flags: string[]
+  key_context: string
+}
 
 export type OnboardingData = {
   // Step 1
@@ -22,30 +18,19 @@ export type OnboardingData = {
   companyName: string
   companyDescription: string
   // Step 2
-  outreachDescription: string
-  categories: CategoryItem[]
-  customCategories: CustomCategory[]
+  professionalContext: string
   // Step 3
-  objectives: string[]
+  outreachProfile: string
   // Step 4
-  technicalRequirements: string
+  currentFocus: string
   // Step 5
   notificationEmail: string
   notificationEmailEnabled: boolean
+  notificationSmsCountry: string
   notificationSms: string
   notificationSmsEnabled: boolean
   notificationFrequency: NotificationFrequency
 }
-
-export const DEFAULT_CATEGORIES: CategoryItem[] = [
-  { id: 'software',      name: 'Software vendors',        enabled: true,  locked: true,  hasNotes: false, notes: '' },
-  { id: 'recruiting',    name: 'Recruiting',              enabled: false, locked: false, hasNotes: true,  notes: '' },
-  { id: 'investors',     name: 'Investors / VC',          enabled: false, locked: false, hasNotes: true,  notes: '' },
-  { id: 'partnerships',  name: 'Partnerships / BD',       enabled: false, locked: false, hasNotes: true,  notes: '' },
-  { id: 'press',         name: 'Press / journalists',     enabled: false, locked: false, hasNotes: false, notes: '' },
-  { id: 'events',        name: 'Events & speaking',       enabled: false, locked: false, hasNotes: true,  notes: '' },
-  { id: 'consultancies', name: 'Consultancies & agencies',enabled: false, locked: false, hasNotes: false, notes: '' },
-]
 
 export function createInitialData(email = ''): OnboardingData {
   return {
@@ -53,13 +38,12 @@ export function createInitialData(email = ''): OnboardingData {
     jobTitle: '',
     companyName: '',
     companyDescription: '',
-    outreachDescription: '',
-    categories: DEFAULT_CATEGORIES.map(c => ({ ...c })),
-    customCategories: [],
-    objectives: [''],
-    technicalRequirements: '',
+    professionalContext: '',
+    outreachProfile: '',
+    currentFocus: '',
     notificationEmail: email,
     notificationEmailEnabled: true,
+    notificationSmsCountry: '+1',
     notificationSms: '',
     notificationSmsEnabled: false,
     notificationFrequency: 'realtime',
@@ -71,10 +55,18 @@ export function generateUsername(fullName: string): string {
     fullName
       .toLowerCase()
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')  // remove diacritics
-      .replace(/[^a-z0-9\s]/g, '')      // remove special chars, keep spaces
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s]/g, '')
       .trim()
-      .replace(/\s+/g, '-')             // spaces → hyphens
-    || 'user'
+      .replace(/\s+/g, '-') || 'user'
   )
+}
+
+export function detectRole(jobTitle: string): Role {
+  const t = jobTitle.toLowerCase()
+  if (/ceo|founder|co-founder|director general|managing director|general manager/.test(t)) return 'ceo'
+  if (/cto|engineering|technical|technology|infrastructure|platform/.test(t)) return 'cto'
+  if (/cmo|marketing|growth|brand|demand/.test(t)) return 'cmo'
+  if (/cfo|finance|financial|treasury|accounting/.test(t)) return 'cfo'
+  return 'default'
 }

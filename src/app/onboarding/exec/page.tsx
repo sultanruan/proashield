@@ -7,14 +7,17 @@ import { createClient } from '@/lib/supabase'
 import { Logo } from '@/components/Logo'
 import { ProgressBar } from './_components/ProgressBar'
 import { Step1Identity } from './_components/Step1Identity'
-import { Step2Outreach } from './_components/Step2Outreach'
-import { Step3Objectives } from './_components/Step3Objectives'
-import { Step4Technical } from './_components/Step4Technical'
+import { Step2ProfessionalContext } from './_components/Step2ProfessionalContext'
+import { Step3OutreachReality } from './_components/Step3OutreachReality'
+import { Step4CurrentFocus } from './_components/Step4CurrentFocus'
 import { Step5Notifications } from './_components/Step5Notifications'
-import { OnboardingData, createInitialData, generateUsername } from './types'
+import { SynthesisLoadingScreen, SynthesisSummaryScreen } from './_components/SynthesisScreen'
+import { OnboardingData, AiStructuredProfile, createInitialData, generateUsername } from './types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 const TOTAL_STEPS = 5
+
+type View = 'steps' | 'synthesizing' | 'summary'
 
 const stepVariants = {
   enter: (dir: number) => ({ x: dir > 0 ? 40 : -40, opacity: 0 }),
@@ -22,10 +25,7 @@ const stepVariants = {
   exit: (dir: number) => ({ x: dir > 0 ? -40 : 40, opacity: 0 }),
 }
 
-async function findAvailableUsername(
-  supabase: SupabaseClient,
-  base: string
-): Promise<string> {
+async function findAvailableUsername(supabase: SupabaseClient, base: string): Promise<string> {
   const { data } = await supabase
     .from('exec_profiles')
     .select('username')
@@ -50,13 +50,15 @@ async function findAvailableUsername(
 export default function ExecOnboardingPage() {
   const router = useRouter()
   const [initializing, setInitializing] = useState(true)
+  const [view, setView] = useState<View>('steps')
   const [step, setStep] = useState(1)
   const [direction, setDirection] = useState(1)
   const [data, setData] = useState<OnboardingData>(createInitialData())
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [savedUsername, setSavedUsername] = useState('')
+  const [synthesisResult, setSynthesisResult] = useState<AiStructuredProfile | null>(null)
 
-  // Auth guard + existing-profile check + email pre-fill
   useEffect(() => {
     async function init() {
       const supabase = createClient()
@@ -102,68 +104,91 @@ export default function ExecOnboardingPage() {
   async function handleComplete() {
     setSaving(true)
     setSaveError('')
+    setView('synthesizing')
 
     try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
-      // Generate unique username
       const base = generateUsername(data.fullName)
       const username = await findAvailableUsername(supabase, base)
+      setSavedUsername(username)
 
-      // Build JSONB fields
-      const acceptedCategories = [
-        ...data.categories
-          .filter((c) => c.enabled)
-          .map((c) => ({ name: c.name, notes: c.notes || undefined })),
-        ...data.customCategories
-          .filter((c) => c.name.trim())
-          .map((c) => ({ name: c.name.trim(), notes: c.notes || undefined })),
-      ]
-
-      const rejectedCategories = data.categories
-        .filter((c) => !c.enabled && !c.locked)
-        .map((c) => ({ name: c.name }))
-
-      const objectives = data.objectives
-        .filter((o) => o.trim())
-        .map((text) => ({ text }))
-
-      // Insert exec profile
       const { error: profileError } = await supabase.from('exec_profiles').insert({
         user_id: user.id,
         username,
+        full_name: data.fullName.trim(),
         job_title: data.jobTitle,
         company_name: data.companyName,
         company_description: data.companyDescription,
-        outreach_description: data.outreachDescription,
-        technical_requirements: data.technicalRequirements.trim() || null,
-        accepted_categories: acceptedCategories,
-        rejected_categories: rejectedCategories,
-        objectives,
-        green_flags: [],
-        red_flags: [],
+        professional_context: data.professionalContext,
+        outreach_profile: data.outreachProfile,
+        current_focus: data.currentFocus,
         notification_email: data.notificationEmailEnabled ? data.notificationEmail.trim() : '',
-        notification_sms: data.notificationSmsEnabled ? data.notificationSms.trim() : null,
+        notification_sms: data.notificationSmsEnabled
+          ? `${data.notificationSmsCountry}${data.notificationSms.trim()}`
+          : null,
+        notification_frequency: data.notificationFrequency,
+        ai_structured_profile: null,
       })
 
       if (profileError) throw profileError
 
-      // Update user full_name
       await supabase
         .from('users')
         .update({ full_name: data.fullName.trim() })
         .eq('id', user.id)
 
-      router.push(`/dashboard/exec?welcome=1&username=${encodeURIComponent(username)}`)
+      // Call synthesis API (non-blocking on failure)
+      try {
+        const res = await fetch('/api/synthesize-profile', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            full_name: data.fullName,
+            job_title: data.jobTitle,
+            company_name: data.companyName,
+            company_description: data.companyDescription,
+            professional_context: data.professionalContext,
+            outreach_profile: data.outreachProfile,
+            current_focus: data.currentFocus,
+          }),
+        })
+
+        if (res.ok) {
+          const { profile: aiProfile } = await res.json() as { profile: AiStructuredProfile }
+          setSynthesisResult(aiProfile)
+
+          // Persist ai_structured_profile
+          await supabase
+            .from('exec_profiles')
+            .update({ ai_structured_profile: aiProfile })
+            .eq('username', username)
+        }
+      } catch {
+        // Synthesis failed — continue without it
+      }
+
+      setView('summary')
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
       setSaving(false)
+      setView('steps')
     }
   }
 
-  // Loading state while checking auth / existing profile
+  function handleActivate() {
+    router.push(`/dashboard/exec?welcome=1&username=${encodeURIComponent(savedUsername)}`)
+  }
+
+  function handleEditAnswers() {
+    setView('steps')
+    setStep(2)
+    setDirection(-1)
+  }
+
+  // ── Loading ──────────────────────────────────────────────────────────────────
   if (initializing) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-[#FAFAFA]">
@@ -172,20 +197,39 @@ export default function ExecOnboardingPage() {
     )
   }
 
+  // ── Synthesis screens ────────────────────────────────────────────────────────
+  if (view === 'synthesizing') return <SynthesisLoadingScreen />
+
+  if (view === 'summary') {
+    const fallbackProfile: AiStructuredProfile = {
+      accepted_categories: [],
+      rejected_categories: [],
+      objectives: [],
+      green_flags: [],
+      red_flags: [],
+      key_context: 'Your AI profile has been set up based on your answers.',
+    }
+    return (
+      <SynthesisSummaryScreen
+        profile={synthesisResult ?? fallbackProfile}
+        onActivate={handleActivate}
+        onEdit={handleEditAnswers}
+      />
+    )
+  }
+
+  // ── Step flow ────────────────────────────────────────────────────────────────
   const stepProps = { data, onChange: updateData, onNext: goNext, onBack: goBack }
 
   return (
     <main className="min-h-screen bg-[#FAFAFA] px-4 py-8 sm:py-12">
       <div className="w-full max-w-[600px] mx-auto">
-        {/* Logo */}
         <div className="flex justify-center mb-10">
           <Logo href="/" />
         </div>
 
-        {/* Progress bar */}
         <ProgressBar current={step} total={TOTAL_STEPS} />
 
-        {/* Step card */}
         <div className="bg-white rounded-xl border border-[#E4E4E7] shadow-[0_1px_2px_0_rgb(0,0,0,0.05)] overflow-hidden">
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div
@@ -199,9 +243,9 @@ export default function ExecOnboardingPage() {
               className="px-6 py-7 sm:px-8 sm:py-8"
             >
               {step === 1 && <Step1Identity {...stepProps} />}
-              {step === 2 && <Step2Outreach {...stepProps} />}
-              {step === 3 && <Step3Objectives {...stepProps} />}
-              {step === 4 && <Step4Technical {...stepProps} />}
+              {step === 2 && <Step2ProfessionalContext {...stepProps} />}
+              {step === 3 && <Step3OutreachReality {...stepProps} />}
+              {step === 4 && <Step4CurrentFocus {...stepProps} />}
               {step === 5 && (
                 <Step5Notifications
                   {...stepProps}
