@@ -1,7 +1,5 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 export type ApprovalEmailPayload = {
   to: string
   cc: string
@@ -85,6 +83,7 @@ function buildApprovalHtml(p: ApprovalEmailPayload): string {
 
 export async function sendApprovalEmail(payload: ApprovalEmailPayload): Promise<void> {
   try {
+    const resend = new Resend(process.env.RESEND_API_KEY!)
     await resend.emails.send({
       from: 'ProaShield <noreply@proashield.com>',
       to: payload.to,

@@ -1,7 +1,5 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 export type PassEmailPayload = {
   execNotificationEmail: string
   execFirstName: string
@@ -173,6 +171,7 @@ function escHtml(str: string): string {
 
 export async function sendPassEmail(payload: PassEmailPayload): Promise<void> {
   try {
+    const resend = new Resend(process.env.RESEND_API_KEY!)
     const subject = payload.senderName
       ? `New contact passed your Proa screening — ${payload.senderName}${payload.senderCompany ? ` from ${payload.senderCompany}` : ''}`
       : 'New contact passed your Proa screening'

@@ -1,7 +1,5 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 export type HeldConversation = {
   id: string
   sender_name: string
@@ -216,6 +214,7 @@ function buildWeeklyDigestHtml(p: WeeklyDigestPayload): string {
 
 export async function sendWeeklyDigest(payload: WeeklyDigestPayload): Promise<void> {
   try {
+    const resend = new Resend(process.env.RESEND_API_KEY!)
     const n = payload.heldConversations.length
     const subject = `Your Proa weekly digest — ${n} contact${n !== 1 ? 's' : ''} to review`
 
