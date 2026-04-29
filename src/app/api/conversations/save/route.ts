@@ -59,6 +59,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const statusMap: Record<string, string> = { pass: 'passed', hold: 'pending', fail: 'failed' }
+
     // Use admin client to bypass RLS for insert
     const admin = createAdminClient()
     await admin.from('conversations').insert({
@@ -68,6 +70,7 @@ export async function POST(request: NextRequest) {
       sender_company: senderCompany,
       sender_email: senderEmail,
       verdict: verdict as 'pass' | 'hold' | 'fail',
+      status: statusMap[verdict] ?? 'pending',
       score,
       category,
       summary,

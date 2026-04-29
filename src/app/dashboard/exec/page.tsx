@@ -1,83 +1,60 @@
-'use client'
+import { redirect } from 'next/navigation'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { DashboardClient } from './_components/DashboardClient'
+import type { DashboardConversation } from '@/components/dashboard/ConversationCard'
 
-import { useSearchParams } from 'next/navigation'
-import { useState, Suspense } from 'react'
-import { ShieldCheck, Copy, Check } from 'lucide-react'
-import { Logo } from '@/components/Logo'
+export default async function ExecDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ welcome?: string; username?: string }>
+}) {
+  const sp = await searchParams
+  const isWelcome = sp.welcome === '1'
+  const welcomeUsername = sp.username ?? ''
 
-function DashboardContent() {
-  const params = useSearchParams()
-  const isWelcome = params.get('welcome') === '1'
-  const username = params.get('username') ?? ''
-  const profileUrl = `proashield.com/${username}`
+  const supabase = await createServerSupabaseClient()
 
-  const [copied, setCopied] = useState(false)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/auth/exec/login')
 
-  function copyLink() {
-    navigator.clipboard.writeText(`https://${profileUrl}`)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+  const { data: userRow } = await supabase
+    .from('users')
+    .select('user_type')
+    .eq('id', user.id)
+    .single()
+
+  if (userRow?.user_type !== 'exec') redirect('/')
+
+  const { data: profile } = await supabase
+    .from('exec_profiles')
+    .select('id, username, full_name, notification_email')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (!profile) redirect('/onboarding/exec')
+
+  const { data: rawConversations } = await supabase
+    .from('conversations')
+    .select(
+      'id, sender_name, sender_company, sender_email, verdict, status, score, category, summary, reason, transcript, created_at, resolved_at'
+    )
+    .eq('exec_profile_id', profile.id)
+    .order('created_at', { ascending: false })
+
+  // Coerce status for rows that predate the migration (no status column yet)
+  const conversations: DashboardConversation[] = (rawConversations ?? []).map((c) => ({
+    ...c,
+    status: (c.status as DashboardConversation['status']) ??
+      (c.verdict === 'pass' ? 'passed' : c.verdict === 'fail' ? 'failed' : 'pending'),
+    transcript: Array.isArray(c.transcript) ? c.transcript : [],
+  }))
 
   return (
-    <main className="min-h-screen bg-[#FAFAFA]">
-      {/* Minimal top bar */}
-      <header className="h-14 border-b border-[#E4E4E7] bg-white flex items-center px-6">
-        <Logo />
-      </header>
-
-      <div className="max-w-2xl mx-auto px-4 py-12">
-        {/* Welcome banner */}
-        {isWelcome && username && (
-          <div className="mb-8 flex items-start gap-4 px-5 py-4 rounded-xl bg-[#F0F9FF] border border-[#BAE6FD]">
-            <ShieldCheck className="w-5 h-5 text-[#0EA5E9] shrink-0 mt-0.5" strokeWidth={2} />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-[#0369A1]">
-                Your Shield is live
-              </p>
-              <p className="text-sm text-[#0369A1] mt-0.5">
-                Share this link — every sender goes through your AI screening first.
-              </p>
-              <div className="mt-3 flex items-center gap-2">
-                <div className="flex-1 min-w-0 px-3 py-1.5 rounded-lg bg-white border border-[#BAE6FD] text-sm text-[#09090B] font-medium truncate">
-                  {profileUrl}
-                </div>
-                <button
-                  onClick={copyLink}
-                  className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0EA5E9] hover:bg-[#0284C7] text-white text-sm font-medium transition-colors duration-150"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="w-3.5 h-3.5" />
-                      Copied
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      Copy link
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Placeholder content */}
-        <div className="text-center py-16 text-[#A1A1AA]">
-          <ShieldCheck className="w-10 h-10 mx-auto mb-4 text-[#E4E4E7]" strokeWidth={1.5} />
-          <p className="text-[15px] font-medium text-[#52525B]">Executive Dashboard</p>
-          <p className="text-sm mt-1">Coming in Week 5</p>
-        </div>
-      </div>
-    </main>
-  )
-}
-
-export default function ExecDashboardPage() {
-  return (
-    <Suspense>
-      <DashboardContent />
-    </Suspense>
+    <DashboardClient
+      profile={profile}
+      conversations={conversations}
+      isWelcome={isWelcome}
+      welcomeUsername={welcomeUsername}
+    />
   )
 }
