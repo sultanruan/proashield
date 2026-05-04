@@ -1,14 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { AuthLayout } from '@/components/AuthLayout'
 import { createClient } from '@/lib/supabase'
 
-export default function SellerLoginPage() {
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get('redirect')
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -26,7 +29,7 @@ export default function SellerLoginPage() {
     if (error) {
       setError(error.message)
     } else {
-      router.push('/dashboard/seller')
+      router.push(redirectTo ?? '/dashboard/seller')
       router.refresh()
     }
   }
@@ -88,6 +91,14 @@ export default function SellerLoginPage() {
         </p>
       </form>
     </AuthLayout>
+  )
+}
+
+export default function SellerLoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }
 

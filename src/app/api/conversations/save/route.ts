@@ -15,11 +15,14 @@ export async function POST(request: NextRequest) {
       reason,
       transcript,
       prompt_snapshot,
-      seller_id,
     } = body
 
     // Look up exec_profile_id
     const supabase = await createServerSupabaseClient()
+
+    // Extract seller_id from the authenticated session (server-side, not client-provided)
+    const { data: { user } } = await supabase.auth.getUser()
+    const seller_id: string | null = user?.id ?? null
     const { data: profile } = await supabase
       .from('exec_profiles')
       .select('id, notification_email, full_name')

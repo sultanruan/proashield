@@ -1,10 +1,34 @@
-export default function SellerOnboardingPage() {
+import { redirect } from 'next/navigation'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { SellerOnboardingClient } from './_components/SellerOnboardingClient'
+
+export default async function SellerOnboardingPage() {
+  const supabase = await createServerSupabaseClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/auth/seller/login')
+
+  const { data: userRow } = await supabase
+    .from('users')
+    .select('user_type')
+    .eq('id', user.id)
+    .single()
+
+  if (userRow?.user_type !== 'seller') redirect('/')
+
+  const { data: profile } = await supabase
+    .from('seller_profiles')
+    .select('company_name, company_email, onboarding_completed')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (profile?.onboarding_completed) redirect('/dashboard/seller')
+
   return (
-    <main className="min-h-screen flex items-center justify-center bg-white">
-      <div className="text-center">
-        <h1 className="text-2xl font-semibold text-gray-800">Seller Onboarding</h1>
-        <p className="mt-2 text-gray-500">Coming in Week 6</p>
-      </div>
-    </main>
+    <SellerOnboardingClient
+      userId={user.id}
+      initialCompanyName={profile?.company_name ?? ''}
+      initialCompanyEmail={profile?.company_email ?? ''}
+    />
   )
 }

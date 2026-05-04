@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { PublicProfileClient } from './_components/PublicProfileClient'
@@ -13,6 +13,22 @@ export default async function PublicProfilePage({
   console.log('[PublicProfilePage] username from params:', JSON.stringify(username))
 
   const supabase = await createServerSupabaseClient()
+
+  // Auth gate — sellers only
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    redirect(`/auth/seller/login?redirect=/${encodeURIComponent(username)}`)
+  }
+
+  const { data: userRow } = await supabase
+    .from('users')
+    .select('user_type')
+    .eq('id', user.id)
+    .single()
+
+  if (userRow?.user_type !== 'seller') {
+    redirect('/dashboard/exec')
+  }
 
   const { data, error } = await supabase
     .from('exec_profiles')
