@@ -41,7 +41,7 @@ const stepVariants = {
   center: { x: 0, opacity: 1 },
   exit: (dir: number) => ({ x: dir > 0 ? -40 : 40, opacity: 0 }),
 }
-const stepTransition = { duration: 0.28, ease: 'easeOut' }
+const stepTransition = { duration: 0.28, ease: 'easeInOut' as const }
 
 function ProgressBar({ step }: { step: number }) {
   return (
@@ -132,8 +132,7 @@ export function SellerOnboardingClient({ userId, initialCompanyName, initialComp
     const supabase = createClient()
     const { error } = await supabase
       .from('seller_profiles')
-      .update(fields)
-      .eq('user_id', userId)
+      .upsert({ user_id: userId, ...fields }, { onConflict: 'user_id' })
     return !error
   }
 
